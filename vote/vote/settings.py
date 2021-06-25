@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'polls',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'polls.middlewares.check_login_middleware',
 ]
 
 ROOT_URLCONF = 'vote.urls'
@@ -134,10 +136,59 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
-
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'), ]
 STATIC_URL = '/static/'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# 下面的配置根据项目需要进行设置
+REST_FRAMEWORK = {
+    # 配置默认页面大小
+    # 'PAGE_SIZE': 10,
+    # 配置默认的分页类
+    # 'DEFAULT_PAGINATION_CLASS': '...',
+    # 配置异常处理器
+    # 'EXCEPTION_HANDLER': '...',
+    # 配置默认解析器
+    # 'DEFAULT_PARSER_CLASSES': (
+    #     'rest_framework.parsers.JSONParser',
+    #     'rest_framework.parsers.FormParser',
+    #     'rest_framework.parsers.MultiPartParser',
+    # ),
+    # 配置默认限流类
+    # 'DEFAULT_THROTTLE_CLASSES': (
+    #     '...'
+    # ),
+    # 配置默认授权类
+    # 'DEFAULT_PERMISSION_CLASSES': (
+    #     '...',
+    # ),
+    # 配置默认认证类
+    # 'DEFAULT_AUTHENTICATION_CLASSES': (
+    #     '...',
+    # ),
+}
+CACHES = {
+    'default': {
+        # 指定通过django-redis接入Redis服务
+        'BACKEND': 'django_redis.cache.RedisCache',
+        # Redis服务器的URL
+        'LOCATION': ['redis://1.2.3.4:6379/0', ],
+        # Redis中键的前缀（解决命名冲突）
+        'KEY_PREFIX': 'vote',
+        # 其他的配置选项
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            # 连接池（预置若干备用的Redis连接）参数
+            'CONNECTION_POOL_KWARGS': {
+                # 最大连接数
+                'max_connections': 512,
+            },
+            # 连接Redis的用户口令
+            'PASSWORD': 'foobared',
+        }
+    },
+}

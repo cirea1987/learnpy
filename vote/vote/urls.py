@@ -16,6 +16,20 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from polls.views import *
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', show_index),
+    path('api/subjects/', show_subjects),
+    path('api/teachers/', show_teachers),
+    #path('teachers/', show_teachers),
+    path('praise/', praise_or_criticize),
+    path('criticize/', praise_or_criticize),
+    path('login/', login),
+    path('logout/', logout),
+    path('captcha/', get_captcha),
+    path('excel/', export_teachers_excel),
+    path('pdf',export_pdf),
+    path('teachers_data/', get_teachers_data),
 ]

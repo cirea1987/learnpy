@@ -5,7 +5,7 @@ from polls.models import Subject, Teacher, User
 from polls.serializers import SubjectSerializer, TeacherSerializer, SubjectSimpleSerializer
 from polls.utils import gen_random_code, gen_md5_digest
 
-from django.http import JsonResponse,HttpRequest,HttpResponse
+from django.http import JsonResponse,HttpRequest,HttpResponse, request
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from urllib.parse import quote
@@ -169,3 +169,74 @@ def show_subjects(request: HttpRequest) -> HttpResponse:
     serializer = SubjectSerializer(subjects, many=True)
     # 通过序列化器的data属性获得模型对应的字典并通过创建Response对象返回JSON格式的数据
     return Response(serializer.data)
+
+from polls.snscode import *
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django_redis import get_redis_connection
+@api_view(('GET', ))
+def get_mobilecode(request, tel):
+    """获取短信验证码"""
+    if check_tel(tel):
+        redis_cli = get_redis_connection()
+        if redis_cli.exists(f'vote:block-mobile:{tel}'):
+            data = {'code': 30001, 'message': '请不要在60秒内重复发送短信验证码'}
+        else:
+            code = random_code()
+            send_mobile_code(tel, code)
+            # 通过Redis阻止60秒内容重复发送短信验证码
+            redis_cli.set(f'vote:block-mobile:{tel}', 'x', ex=60)
+            # 将验证码在Redis中保留10分钟（有效期10分钟）
+            redis_cli.set(f'vote2:valid-mobile:{tel}', code, ex=600)
+            data = {'code': 30000, 'message': '短信验证码已发送，请注意查收'}
+    else:
+        data = {'code': 30002, 'message': '请输入有效的手机号'}
+    return Response(data)
+
+import requests
+def send_mobile_code(tel, code):
+    """发送短信验证码"""
+    resp = requests.post(
+        url='http://sms-api.luosimao.com/v1/send.json',
+        auth=('api', 'key-自己的APIKey'),
+        data={
+            'mobile': tel,
+            'message': f'您的短信验证码是{code}，打死也不能告诉别人哟。【Python小课】'
+        },
+        verify=False
+    )
+    return resp.json()
+
+import qiniu
+
+AUTH = qiniu.Auth('qFUT5MVsJRufyjsCx-WhSlUsHLO7IN9IKncn_T5L', 'amgZx008TPheAYmfCFcNYhrD7c7p6kUFfFY1geEy')
+BUCKET_NAME = 'voteceshi'
+
+
+def upload_file_to_qiniu(key, file_path):
+    """上传指定路径的文件到七牛云"""
+    token = AUTH.upload_token(BUCKET_NAME, key)
+    return qiniu.put_file(token, key, file_path)
+
+
+def upload_stream_to_qiniu(key, stream, size):
+    """上传二进制数据流到七牛云"""
+    token = AUTH.upload_token(BUCKET_NAME, key)
+    return qiniu.put_stream(token, key, stream, None, size)
+from django.views.decorators.csrf import csrf_exempt
+
+import os
+import uuid
+@csrf_exempt
+def upload(request):
+    # 如果上传的文件小于2.5M，则photo对象的类型为InMemoryUploadedFile，文件在内存中
+    # 如果上传的文件超过2.5M，则photo对象的类型为TemporaryUploadedFile，文件在临时路径下
+    photo = request.FILES.get('photo')
+    _, ext = os.path.splitext(photo.name)
+    # 通过UUID和原来文件的扩展名生成独一无二的新的文件名
+    filename = f'{uuid.uuid1().hex}{ext}'
+    # 对于内存中的文件，可以使用上面封装好的函数upload_stream_to_qiniu上传文件到七牛云
+    # 如果文件保存在临时路径下，可以使用upload_file_to_qiniu实现文件上传
+    upload_stream_to_qiniu(filename, photo.file, photo.size)
+    return redirect('/static/html/upload.html')

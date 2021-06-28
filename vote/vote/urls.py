@@ -32,4 +32,6 @@ urlpatterns = [
     path('excel/', export_teachers_excel),
     path('pdf',export_pdf),
     path('teachers_data/', get_teachers_data),
+    path('upload/', upload),
+    
 ]
